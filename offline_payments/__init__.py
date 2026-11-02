@@ -1,3 +1,3 @@
-from .protocol import OfflineWallet, PaymentToken, Settlement, SpendResult
+from .protocol import OfflineClearingHouse, OfflineWallet, PaymentToken, ReconciliationResult, Settlement, SpendResult
 
-__all__ = ["OfflineWallet", "PaymentToken", "Settlement", "SpendResult"]
+__all__ = ["OfflineClearingHouse", "OfflineWallet", "PaymentToken", "ReconciliationResult", "Settlement", "SpendResult"]

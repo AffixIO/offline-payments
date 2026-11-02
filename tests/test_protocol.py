@@ -1,5 +1,5 @@
 import pytest
-from offline_payments import OfflineWallet, PaymentToken
+from offline_payments import OfflineClearingHouse, OfflineWallet, PaymentToken
 
 def wallet():
     token = PaymentToken.issue("w-1", "t-1", 1000, 100)
@@ -26,3 +26,18 @@ def test_offline_limit_and_reconciliation():
 
 def test_token_values_must_be_positive():
     with pytest.raises(ValueError): PaymentToken.issue("w", "t", 0, 1)
+
+def test_connected_reconciliation_catches_duplicate_receipts_globally():
+    token = PaymentToken.issue("w", "t-global", 100, 99)
+    first_wallet = OfflineWallet("w", [token]); second_wallet = OfflineWallet("w", [token])
+    first = first_wallet.spend("t-global", 50, "m-1", 1).receipt
+    second = second_wallet.spend("t-global", 50, "m-2", 2).receipt
+    clearing = OfflineClearingHouse()
+    assert clearing.reconcile(first).reason == "settled"
+    assert clearing.reconcile(second).reason == "global-double-spend"
+
+def test_reconciliation_rejects_altered_receipt():
+    token = PaymentToken.issue("w", "t-altered", 100, 99)
+    receipt = OfflineWallet("w", [token]).spend("t-altered", 50, "m", 1).receipt
+    receipt["value"] = 99
+    assert OfflineClearingHouse().reconcile(receipt).reason == "tampered-receipt"

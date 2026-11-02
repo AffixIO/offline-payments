@@ -39,6 +39,12 @@ class Settlement:
     merchant_id: str
     evidence_digest: str
 
+@dataclass(frozen=True)
+class ReconciliationResult:
+    accepted: bool
+    reason: str
+    settlement: Settlement | None = None
+
 class OfflineWallet:
     """Local simulation of a wallet holding pre-authorised offline tokens."""
     def __init__(self, wallet_id: str, tokens: Iterable[PaymentToken] = (), max_offline_value: int = 5000):
@@ -66,3 +72,20 @@ class OfflineWallet:
             if receipt.get("nullifier") not in self.spent_nullifiers: continue
             settlements.append(Settlement(receipt["receipt_id"], receipt["token_id"], receipt["nullifier"], receipt["value"], receipt["currency"], receipt["merchant_id"], receipt["evidence_digest"]))
         return settlements
+
+class OfflineClearingHouse:
+    """Connected-side registry that makes nullifiers globally one-use at reconciliation."""
+    def __init__(self):
+        self.consumed_nullifiers: set[str] = set()
+        self.settlements: list[Settlement] = []
+
+    def reconcile(self, receipt: dict) -> ReconciliationResult:
+        required = {"receipt_id", "token_id", "nullifier", "value", "currency", "merchant_id", "wallet_id", "evidence_digest"}
+        if not required.issubset(receipt): return ReconciliationResult(False, "malformed")
+        if receipt["nullifier"] in self.consumed_nullifiers: return ReconciliationResult(False, "global-double-spend")
+        body = {key: receipt[key] for key in required if key != "evidence_digest"}
+        if digest(body) != receipt["evidence_digest"]: return ReconciliationResult(False, "tampered-receipt")
+        settlement = Settlement(receipt["receipt_id"], receipt["token_id"], receipt["nullifier"], receipt["value"], receipt["currency"], receipt["merchant_id"], receipt["evidence_digest"])
+        self.consumed_nullifiers.add(receipt["nullifier"])
+        self.settlements.append(settlement)
+        return ReconciliationResult(True, "settled", settlement)
