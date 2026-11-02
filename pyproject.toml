@@ -1,0 +1,8 @@
+[project]
+name = "affixio-offline-payments-demo"
+version = "0.1.0"
+description = "A simulated offline authorisation and nullifier protocol for AffixIO."
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
